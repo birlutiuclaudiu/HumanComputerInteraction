@@ -360,6 +360,8 @@ void MyCallBackFunc(int event, int x, int y, int flags, void* param)
 {
     //More examples: http://opencvexamples.blogspot.com/2014/01/detect-mouse-clicks-and-moves-on-image.html
     Mat* src = (Mat*)param;
+    Mat hsv;
+    cvtColor(*src, hsv, CV_BGR2HSV);
     if (event == CV_EVENT_LBUTTONDOWN)
     {
         printf("Pos(x,y): %d,%d  Color(RGB): %d,%d,%d\n",
@@ -367,6 +369,12 @@ void MyCallBackFunc(int event, int x, int y, int flags, void* param)
                (int)(*src).at<Vec3b>(y, x)[2],
                (int)(*src).at<Vec3b>(y, x)[1],
                (int)(*src).at<Vec3b>(y, x)[0]);
+        printf("Pos(x,y): %d,%d  Color(HSV): H:%d, S:%d, V:%d\n",
+               x, y,
+               (int)(hsv).at<Vec3b>(y, x)[2],
+               (int)(hsv).at<Vec3b>(y, x)[1],
+               (int)(hsv).at<Vec3b>(y, x)[0]);
+
     }
 }
 
@@ -392,6 +400,281 @@ void testMouseClick()
     }
 }
 
+////////////////////////////////////////////////// LAB 2  /////////////////////////////////////////////////////////////
+//compute histogram
+void compute_histogram(int *a, Mat src, int n){
+
+    int height = src.rows;
+    int width = src.cols;
+    //intializare vector
+    for (int i = 0; i < n; i++) {
+        a[i] = 0;
+    }
+    for (int i = 0; i < height; i++){
+        for (int j = 0; j < width; j++){
+            a[src.at<uchar>(i, j)] +=1;
+        }
+    }
+
+}
+
+
+void showHistogramHSV(){
+
+    char fname[MAX_PATH];
+    while (openFileDlg(fname)){
+
+        Mat src = imread(fname);
+        int height = src.rows;
+        int width = src.cols;
+
+        Mat dstH = Mat(height, width, CV_8UC1);
+        Mat dstS = Mat(height, width, CV_8UC1);
+        Mat dstV = Mat(height, width, CV_8UC1);
+
+        // definire pointeri la matricele (8 biti/pixeli) folosite la afisarea componentelor individuale H,S,V
+        uchar* dstDataPtrH = dstH.data;
+        uchar* dstDataPtrS = dstS.data;
+        uchar* dstDataPtrV = dstV.data;
+
+        Mat hsvImg;
+        cvtColor(src, hsvImg, CV_BGR2HSV);
+        // definire pointer la matricea (24 biti/pixeli) a imaginii HSV
+        uchar* hsvDataPtr = hsvImg.data;
+
+        for (int i = 0; i<height; i++)
+        {
+            for (int j = 0; j<width; j++)
+            {
+                int hi = i*width * 3 + j * 3;
+                // sau int hi = i*w + j * 3;	//w = 3*width pt. imagini 24 biti/pixel
+                int gi = i*width + j;
+
+                dstDataPtrH[gi] = hsvDataPtr[hi] * 510/360;		// H = 0 .. 255
+                dstDataPtrS[gi] = hsvDataPtr[hi + 1];			// S = 0 .. 255
+                dstDataPtrV[gi] = hsvDataPtr[hi + 2];			// V = 0 .. 255
+            }
+        }
+
+        int h_histo[256];
+        int s_histo[256];
+        int v_histo[256];
+        compute_histogram(h_histo, dstH, 256);
+        compute_histogram(s_histo, dstS, 256);
+        compute_histogram(v_histo, dstV, 256);
+
+        imshow("input image", src);
+        imshow("H", dstH);
+        imshow("S", dstS);
+        imshow("V", dstV);
+        showHistogram ("H Histogram", h_histo, 256, 100, true);
+        showHistogram ("S Histogram", s_histo, 256, 100, true);
+        showHistogram ("V Histogram", v_histo, 256, 100, true);
+        waitKey();
+    }
+}
+
+void binarize_HSV(){
+
+    char fname[MAX_PATH];
+
+    while (openFileDlg(fname)){
+
+        Mat src = imread(fname);
+        int height = src.rows;
+        int width = src.cols;
+
+        Mat dstH = Mat(height, width, CV_8UC1);
+        Mat dstS = Mat(height, width, CV_8UC1);
+        Mat dstV = Mat(height, width, CV_8UC1);
+
+        // definire pointeri la matricele (8 biti/pixeli) folosite la afisarea componentelor individuale H,S,V
+        uchar* dstDataPtrH = dstH.data;
+        uchar* dstDataPtrS = dstS.data;
+        uchar* dstDataPtrV = dstV.data;
+
+        Mat hsvImg;
+        cvtColor(src, hsvImg, CV_BGR2HSV);
+        // definire pointer la matricea (24 biti/pixeli) a imaginii HSV
+        uchar* hsvDataPtr = hsvImg.data;
+
+        for (int i = 0; i<height; i++)
+        {
+            for (int j = 0; j<width; j++)
+            {
+                int hi = i*width * 3 + j * 3;
+                // sau int hi = i*w + j * 3;	//w = 3*width pt. imagini 24 biti/pixel
+                int gi = i*width + j;
+
+                dstDataPtrH[gi] = hsvDataPtr[hi] * 510/360;		// H = 0 .. 255
+                dstDataPtrS[gi] = hsvDataPtr[hi + 1];			// S = 0 .. 255
+                dstDataPtrV[gi] = hsvDataPtr[hi + 2];			// V = 0 .. 255
+            }
+        }
+
+        int h_histo[256];
+        int s_histo[256];
+        int v_histo[256];
+        compute_histogram(h_histo, dstH, 256);
+        compute_histogram(s_histo, dstS, 256);
+        compute_histogram(v_histo, dstV, 256);
+
+        imshow("input image", src);
+        imshow("H", dstH);
+        imshow("S", dstS);
+        imshow("V", dstV);
+        showHistogram ("H Histogram", h_histo, 256, 100, true);
+        showHistogram ("S Histogram", s_histo, 256, 100, true);
+        showHistogram ("V Histogram", v_histo, 256, 100, true);
+
+        int threshold = -1;
+        while(threshold<0 || threshold>255){
+            printf("Write threshold: ");
+            scanf("%d", &threshold);
+        }
+
+        Mat dst = Mat(height, width, CV_8UC1);
+        Vec3b aux;
+        for (int i = 0; i < height; i++){
+            for (int j = 0; j < width; j++){
+                dst.at<uchar>(i, j) = dstH.at<uchar>(i, j) < threshold ? 0 : 255;
+            }
+        }
+
+        imshow("white-black image", dst);
+
+        waitKey();
+    }
+
+}
+void compute_FDP(float* p, int n, Mat src) {
+    int a[256];
+    compute_histogram(a, src, n);
+    int M = src.rows * src.cols;
+    for (int i = 0; i < n; i++) {
+        p[i] =(float) ((float)a[i]) / M;
+    }
+}
+void compute_histograme(int*h, int *hc, float *p, int n, Mat src) {
+
+    compute_histogram(h, src, n);
+    compute_FDP(p, n, src);
+    //compute comultative histogram
+    hc[0] = h[0];
+    for (int g = 1; g < 256; g++) {
+        hc[g] = hc[g - 1] + h[g];
+    }
+
+}
+float  determinare_prag_binarizare_gobala(Mat src) {
+    int n = 256;
+    int h[256];
+    int hc[256];
+    float p[256];
+    compute_histograme(h, hc, p, n, src);
+    int Imin, Imax, gmin, gmax;
+    //se parcurge h
+    for (int g = 0; g < n; g++) {
+        if (h[g] > 0) {
+            Imin = g;
+            break;
+        }
+    }
+    //determinare Imax
+    for (int g = n - 1; g >= 0; g--) {
+        if (h[g] > 0) {
+            Imax = g;
+            break;
+        }
+    }
+
+    float e = 0.5f;
+    float Told = 0.0f;
+    float T = (Imin + Imax) / 2.0f;
+    do {
+        Told = T;
+        float m1=0.0f, m2=0.0f;
+        for (int g = 0; g < Told; g++) {
+            m1 += g * p[g];
+        }
+        for (int g = Told; g < n; g++) {
+            m2 += g * p[g];
+        }
+        T = (m1 + m2) / 2.0f;
+    } while (abs(T-Told)>e);
+    return T;
+}
+void binarize_automatic_threshold(){
+
+    char fname[MAX_PATH];
+
+    while (openFileDlg(fname)){
+
+        Mat src = imread(fname);
+        int height = src.rows;
+        int width = src.cols;
+
+        Mat dstH = Mat(height, width, CV_8UC1);
+        Mat dstS = Mat(height, width, CV_8UC1);
+        Mat dstV = Mat(height, width, CV_8UC1);
+
+        // definire pointeri la matricele (8 biti/pixeli) folosite la afisarea componentelor individuale H,S,V
+        uchar* dstDataPtrH = dstH.data;
+        uchar* dstDataPtrS = dstS.data;
+        uchar* dstDataPtrV = dstV.data;
+
+        Mat hsvImg;
+        cvtColor(src, hsvImg, CV_BGR2HSV);
+        // definire pointer la matricea (24 biti/pixeli) a imaginii HSV
+        uchar* hsvDataPtr = hsvImg.data;
+
+        for (int i = 0; i<height; i++)
+        {
+            for (int j = 0; j<width; j++)
+            {
+                int hi = i*width * 3 + j * 3;
+                // sau int hi = i*w + j * 3;	//w = 3*width pt. imagini 24 biti/pixel
+                int gi = i*width + j;
+
+                dstDataPtrH[gi] = hsvDataPtr[hi] * 510/360;		// H = 0 .. 255
+                dstDataPtrS[gi] = hsvDataPtr[hi + 1];			// S = 0 .. 255
+                dstDataPtrV[gi] = hsvDataPtr[hi + 2];			// V = 0 .. 255
+            }
+        }
+
+        int h_histo[256];
+        int s_histo[256];
+        int v_histo[256];
+        compute_histogram(h_histo, dstH, 256);
+        compute_histogram(s_histo, dstS, 256);
+        compute_histogram(v_histo, dstV, 256);
+
+        imshow("input image", src);
+        imshow("H", dstH);
+        imshow("S", dstS);
+        imshow("V", dstV);
+        showHistogram ("H Histogram", h_histo, 256, 100, true);
+        showHistogram ("S Histogram", s_histo, 256, 100, true);
+        showHistogram ("V Histogram", v_histo, 256, 100, true);
+
+
+        float threshold = determinare_prag_binarizare_gobala(dstV);
+        printf("Threshold:  %f", threshold);
+
+        Mat dst = Mat(height, width, CV_8UC1);
+        Vec3b aux;
+        for (int i = 0; i < height; i++){
+            for (int j = 0; j < width; j++){
+                dst.at<uchar>(i, j) = dstH.at<uchar>(i, j) < threshold ? 255 : 0;
+            }
+        }
+
+        imshow("white-black image", dst);
+
+        waitKey();
+    }
+
+}
 
 int main()
 {
@@ -410,6 +693,9 @@ int main()
         printf(" 7 - Edges in a video sequence\n");
         printf(" 8 - Snap frame from live video\n");
         printf(" 9 - Mouse callback demo\n");
+        printf(" 11 - HSV histograms\n");
+        printf(" 12 - Bynarize with a threshold\n");
+        printf(" 13 - Bynarize with a automatic threshold\n");
         printf(" 0 - Exit\n\n");
         printf("Option: ");
         scanf("%d",&op);
@@ -443,6 +729,16 @@ int main()
             case 9:
                 testMouseClick();
                 break;
+            case 11:
+                showHistogramHSV();
+                 break;
+            case 12:
+                binarize_HSV();
+                break;
+            case 13:
+                binarize_automatic_threshold();
+                break;
+
         }
     }
     while (op!=0);
