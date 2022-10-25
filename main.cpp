@@ -339,9 +339,9 @@ void MyCallBackFunc(int event, int x, int y, int flags, void *param) {
                (int) (*src).at<Vec3b>(y, x)[0]);
         printf("Pos(x,y): %d,%d  Color(HSV): H:%d, S:%d, V:%d\n",
                x, y,
-               (int) (hsv).at<Vec3b>(y, x)[2],
+               (int) (hsv).at<Vec3b>(y, x)[0],
                (int) (hsv).at<Vec3b>(y, x)[1],
-               (int) (hsv).at<Vec3b>(y, x)[0]);
+               (int) (hsv).at<Vec3b>(y, x)[2]);
 
     }
 }
@@ -899,6 +899,47 @@ void segmentation_process() {
     }
 }
 
+////////////////////////////////////////////////// LAB 4  /////////////////////////////////////////////////////////////
+void regionGrowingCallback(int event, int x, int y, int flags, void *param) {
+    //More examples: http://opencvexamples.blogspot.com/2014/01/detect-mouse-clicks-and-moves-on-image.html
+    Mat *h = (Mat *) param;
+    if (event == CV_EVENT_LBUTTONDOWN) {
+
+        printf("Pos(x,y): %d,%d  Color(HSV): H:%d\n",
+               x, y,
+               (int) (*h).at<uchar>(y, x));
+    }
+
+}
+
+
+void regionGrowing() {
+    Mat src;
+    // Read image from file
+    char fname[MAX_PATH];
+    while (openFileDlg(fname)) {
+        src = imread(fname);
+        Mat hsv;
+        //apply
+        GaussianBlur(src, src, Size(5, 5), 0.8, 0.8);
+
+        cvtColor(src, hsv, CV_BGR2HSV);
+        Mat splitHSV[3];   //destination array
+        split(hsv,splitHSV); //split source
+
+        //Create a window
+        namedWindow("My Window", 1);
+
+        //set the callback function for any mouse event
+        setMouseCallback("My Window", regionGrowingCallback, &splitHSV[0]);
+
+        //show the image
+        imshow("My Window", src);
+
+        // Wait until user press some key
+        waitKey(0);
+    }
+}
 
 int main() {
     int op;
@@ -923,6 +964,8 @@ int main() {
         printf(" 15- Read from file Histograma globala\n");
         printf(" 16- Save model\n");
         printf(" 17- Segmentation\n");
+        printf("-------------LAB 4 -----------------------\n");
+        printf(" 18- Region growiing\n");
         printf(" 0 - Exit\n\n");
         printf("Option: ");
         scanf("%d", &op);
@@ -975,6 +1018,9 @@ int main() {
                 break;
             case 17:
                 segmentation_process();
+                break;
+            case 18:
+                regionGrowing();
                 break;
 
 
