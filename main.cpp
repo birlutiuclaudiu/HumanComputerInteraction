@@ -880,14 +880,19 @@ void segmentation_process() {
         }
         //////postprocesare
         // creare element structural de dimensiune 5x5 de tip cruce
-        Mat element1 = getStructuringElement(MORPH_CROSS, Size(5, 5));
+        Mat element1 = getStructuringElement(MORPH_CROSS, Size(3, 3));
         //eroziune cu acest element structural (aplicata 1x)
-        erode(dst, dst, element1, Point(-1, -1), 1);
+        erode(dst, dst, element1, Point(-1, -1), 2);
         // creare element structural de dimensiune 3x3 de tip patrat (V8)
         Mat element2 = getStructuringElement(MORPH_RECT, Size(3, 3));
         // dilatare cu acest element structural (aplicata 2x)
-        dilate(dst, dst, element2, Point(-1, -1), 2);
+        dilate(dst, dst, element2, Point(-1, -1), 4);
+        Mat element3 = getStructuringElement(MORPH_RECT, Size(3, 3));
+        // dilatare cu acest element structural (aplicata 2x)
+        erode(dst, dst, element3, Point(-1, -1), 2);
 
+        ///vie labeling
+        Labeling("After all process", dst, false);
         imshow("src", src);     // Wait until user press some key
         imshow("dst", dst);     // Wait until user press some key
         waitKey(0);

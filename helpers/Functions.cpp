@@ -380,7 +380,7 @@ void Labeling(const string& name, const Mat& src, bool output_format)
 	vector<Vec4i> hierarchy;
 	
 	// http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=findcontours#findcontours
-	findContours(src, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
+	findContours(src, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
 
 	Moments m;
 	if (contours.size() > 0)
@@ -426,6 +426,11 @@ void Labeling(const string& name, const Mat& src, bool output_format)
 				float teta = 0.5*atan2(2 * mc11p, mc20p - mc02p);
 				float teta_deg = teta * 180 / PI;
 
+                int delta = 100;
+                Point P1 = Point(center.x - delta, center.y - (int)(delta * tan(teta)));
+                Point P2 = Point(center.x + delta, center.y + (int)(delta * tan(teta)));
+                line(dst, P1, P2,Scalar(255,255,255), 1, 8);
+                imshow("with_ax", dst);
 				printf("ID=%d, arie=%.0f, xc=%0.f, yc=%0.f, teta=%.0f\n", idx, arie, xc, yc, teta_deg);
 
 			}
