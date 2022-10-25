@@ -900,14 +900,93 @@ void segmentation_process() {
 }
 
 ////////////////////////////////////////////////// LAB 4  /////////////////////////////////////////////////////////////
+#include<queue>  //pentru BFS
+
+using namespace std;
+
+bool isInside(Mat img, int i, int j) {
+    if (i < 0 || j < 0) return false;
+    if (i < img.rows && j < img.cols) return true;
+    return false;
+}
+
+float getAvg(Mat h, int i, int j, int w){
+    int d = w/2;
+    int n = 0;
+    float H_avg = 0.0f;
+    for(int y = -d; y<=d; y++){
+        for(int x = -d; x<=d; x++){
+            if(isInside(h, i+y, j+x)){
+                H_avg+= h.at<uchar>(i+y, j+x);
+                n++;
+            }
+        }
+    }
+    return H_avg/n;
+}
+
 void regionGrowingCallback(int event, int x, int y, int flags, void *param) {
     //More examples: http://opencvexamples.blogspot.com/2014/01/detect-mouse-clicks-and-moves-on-image.html
     Mat *h = (Mat *) param;
+    //for neighbors
+    int dj[8] = {1, 1, 0, -1, -1, -1, 0, 1}; // row
+    int di[8] = {0, -1, -1, -1, 0, 1, 1, 1}; // col
     if (event == CV_EVENT_LBUTTONDOWN) {
+        printf("Pos(x,y): %d,%d  Color(HSV): H:%d\n", x, y, (int) (*h).at<uchar>(y, x));
+        Mat labels = Mat::zeros((*h).size(), CV_16UC1); //labels matrix
+        Mat dst = Mat::zeros((*h).size(), CV_8UC1); //destination matrix
 
-        printf("Pos(x,y): %d,%d  Color(HSV): H:%d\n",
-               x, y,
-               (int) (*h).at<uchar>(y, x));
+        queue<Point> que;
+        float Threshold = 2.5* 5;
+        int k = 1;   //eticheta curenta
+        que.push(Point(x, y)); //adauga element de seed point
+        float Hue_avg = getAvg(*h, y, x, 7);
+        printf("%f", Hue_avg);
+        int n = 0;
+        int N = 1;
+
+        while (!que.empty()) {
+            //we set the oldest position of point from queue
+            Point oldest = que.front();
+            que.pop();
+            int xx = oldest.x;
+            int yy = oldest.y;
+            for (int dx = 0; dx < 8; dx++) {
+                for (int dy = 0; dy < 8; dy++) {
+                    if (isInside((*h), yy + di[dy], xx + dj[dx])) {
+                        if (abs((*h).at<uchar>(yy + di[dy], xx + dj[dx]) - Hue_avg) < Threshold &&
+                            labels.at<uchar>(yy + di[dy], xx + dj[dx]) == 0) {
+                            labels.at<uchar>(yy + di[dy], xx + dj[dx]) = k;
+                            Hue_avg = (N * Hue_avg + (*h).at<uchar>(yy + di[dy], xx + dj[dx])) / (N+1);
+                            N++;
+                            que.push(Point(xx + dj[dx], yy + di[dy]));
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < dst.rows; i++) {
+            for (int j = 0; j < dst.cols; j++) {
+                if (labels.at<uchar>(i, j) == 1)
+                    dst.at<uchar>(i, j) = 255;
+                else
+                    dst.at<uchar>(i, j) = 0;
+            }
+        }
+        Mat element1 = getStructuringElement(MORPH_CROSS, Size(3, 3));
+        //eroziune cu acest element structural (aplicata 1x)
+        erode(dst, dst, element1, Point(-1, -1), 2);
+        // creare element structural de dimensiune 3x3 de tip patrat (V8)
+        Mat element2 = getStructuringElement(MORPH_RECT, Size(3, 3));
+        // dilatare cu acest element structural (aplicata 2x)
+        dilate(dst, dst, element2, Point(-1, -1), 4);
+        Mat element3 = getStructuringElement(MORPH_RECT, Size(3, 3));
+        // dilatare cu acest element structural (aplicata 2x)
+        erode(dst, dst, element3, Point(-1, -1), 2);
+
+        imshow("Imagine dst", dst);
+        waitKey(0);
     }
 
 }
@@ -925,7 +1004,7 @@ void regionGrowing() {
 
         cvtColor(src, hsv, CV_BGR2HSV);
         Mat splitHSV[3];   //destination array
-        split(hsv,splitHSV); //split source
+        split(hsv, splitHSV); //split source
 
         //Create a window
         namedWindow("My Window", 1);
