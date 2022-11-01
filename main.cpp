@@ -910,19 +910,19 @@ bool isInside(Mat img, int i, int j) {
     return false;
 }
 
-float getAvg(Mat h, int i, int j, int w){
-    int d = w/2;
+float getAvg(Mat h, int i, int j, int w) {
+    int d = w / 2;
     int n = 0;
     float H_avg = 0.0f;
-    for(int y = -d; y<=d; y++){
-        for(int x = -d; x<=d; x++){
-            if(isInside(h, i+y, j+x)){
-                H_avg+= h.at<uchar>(i+y, j+x);
+    for (int y = -d; y <= d; y++) {
+        for (int x = -d; x <= d; x++) {
+            if (isInside(h, i + y, j + x)) {
+                H_avg += h.at<uchar>(i + y, j + x);
                 n++;
             }
         }
     }
-    return H_avg/n;
+    return H_avg / n;
 }
 
 void regionGrowingCallback(int event, int x, int y, int flags, void *param) {
@@ -937,7 +937,7 @@ void regionGrowingCallback(int event, int x, int y, int flags, void *param) {
         Mat dst = Mat::zeros((*h).size(), CV_8UC1); //destination matrix
 
         queue<Point> que;
-        float Threshold = 2.5* 5;
+        float Threshold = 2.5 * 5;
         int k = 1;   //eticheta curenta
         que.push(Point(x, y)); //adauga element de seed point
         float Hue_avg = getAvg(*h, y, x, 7);
@@ -957,7 +957,7 @@ void regionGrowingCallback(int event, int x, int y, int flags, void *param) {
                         if (abs((*h).at<uchar>(yy + di[dy], xx + dj[dx]) - Hue_avg) < Threshold &&
                             labels.at<uchar>(yy + di[dy], xx + dj[dx]) == 0) {
                             labels.at<uchar>(yy + di[dy], xx + dj[dx]) = k;
-                            Hue_avg = (N * Hue_avg + (*h).at<uchar>(yy + di[dy], xx + dj[dx])) / (N+1);
+                            Hue_avg = (N * Hue_avg + (*h).at<uchar>(yy + di[dy], xx + dj[dx])) / (N + 1);
                             N++;
                             que.push(Point(xx + dj[dx], yy + di[dy]));
                         }
@@ -1020,6 +1020,127 @@ void regionGrowing() {
     }
 }
 
+//---------------------------------------------------------LAB 5--------------------------------------------------------
+void corners_detection() {
+
+    Mat src; // Read image from file
+    char fname[MAX_PATH];
+    while (openFileDlg(fname)) {
+        src = imread(fname);
+        Mat dst_image = src.clone();
+        cvtColor(src, src, CV_BGR2GRAY);
+        GaussianBlur(src, src, Size(5, 5), 0.8, 0.8);
+
+        vector<Point2f> corners;
+        int maxCorners = 100;
+        double qualityLevel = 0.01;
+        double minDistance = 10;
+        int blockSize = 3; // 2,3, ...
+        bool useHarrisDetector = true;
+        double k = 0.04;
+        goodFeaturesToTrack(src, corners, maxCorners, qualityLevel, minDistance, Mat(), blockSize, useHarrisDetector,
+                            k);
+        //desenare colturi
+        Scalar circle_color(0, 255, 0);
+        for (int i = 0; i < corners.size(); i++) {
+            circle(dst_image, corners.at(i), 3, circle_color, 2);//Using circle()function to draw the line//
+        }
+
+        imshow("corners_detection", dst_image);
+
+        waitKey(0);
+    }
+}
+
+void save_in_file(vector<Point2f> corners) {
+    FILE *fp;
+    // Hue
+    fp = fopen("./subpixels.txt", "wt");
+    for (size_t i = 0; i < corners.size(); i++) {
+        fprintf(fp, "%.2f %.2f\n", corners[i].x, corners[i].y);
+    }
+
+    fclose(fp);
+
+}
+
+void corners_subpixels() {
+    Mat src; // Read image from file
+    char fname[MAX_PATH];
+    while (openFileDlg(fname)) {
+        src = imread(fname);
+        Mat dst_image = src.clone();
+        cvtColor(src, src, CV_BGR2GRAY);
+        GaussianBlur(src, src, Size(5, 5), 0.8, 0.8);
+
+        vector<Point2f> corners;
+        int maxCorners = 100;
+        double qualityLevel = 0.01;
+        double minDistance = 10;
+        int blockSize = 3; // 2,3, ...
+        bool useHarrisDetector = true;
+        double k = 0.04;
+        goodFeaturesToTrack(src, corners, maxCorners, qualityLevel, minDistance, Mat(), blockSize, useHarrisDetector,
+                            k);
+        //desenare colturi
+        Scalar circle_color(0, 255, 0);
+        for (int i = 0; i < corners.size(); i++) {
+            circle(dst_image, corners.at(i), 3, circle_color, 2);//Using circle()function to draw the line//
+        }
+
+        Size winSize = Size(5, 5);
+        Size zeroZone = Size(-1, -1);
+        TermCriteria criteria = TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 40, 0.001);
+        cornerSubPix(src, corners, winSize, zeroZone, criteria);
+        save_in_file(corners);
+    }
+
+}
+
+void harrys_method() {
+    Mat src; // Read image from file
+    char fname[MAX_PATH];
+    while (openFileDlg(fname)) {
+        src = imread(fname);
+        Mat dst_image = src.clone();
+        Mat src_gray;
+        cvtColor(src, src_gray, CV_BGR2GRAY);
+        GaussianBlur(src_gray, src_gray, Size(5, 5), 0.8, 0.8);
+        int thresh = 200;
+        int max_thresh = 255;
+        int blockSize = 2;
+        int apertureSize = 3;
+        double k = 0.04;
+        int w = 11;
+        int d = w / 2;
+        Mat dst = Mat::zeros(src.size(), CV_32FC1);
+        cornerHarris(src_gray, dst, blockSize, apertureSize, k);
+        Mat dst_norm, dst_norm_scaled;
+        normalize(dst, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
+        convertScaleAbs(dst_norm, dst_norm_scaled);
+        for (int i = 0; i < dst_norm.rows; i++) {
+            for (int j = 0; j < dst_norm.cols; j++) {
+                if ((int) dst_norm.at<float>(i, j) > thresh) {
+                    bool flag = true;
+                    for (int di = -d; di <= d; di++) {
+                        for (int dj = -d; dj <= d; dj++) {
+                            if (!isInside(dst_norm, i + di, j + dj))
+                                continue;
+                            if (dst_norm.at<float>(i + di, j + dj) > dst_norm.at<float>(i, j))
+                                flag = false;
+                        }
+                    }
+                    if (flag)
+                        circle(dst_norm_scaled, Point(j, i), 5, Scalar(0), 2, 8, 0);
+                }
+            }
+        }
+        imshow("corners_window", dst_norm_scaled);
+        waitKey(0);
+    }
+
+}
+
 int main() {
     int op;
     do {
@@ -1045,6 +1166,10 @@ int main() {
         printf(" 17- Segmentation\n");
         printf("-------------LAB 4 -----------------------\n");
         printf(" 18- Region growiing\n");
+        printf("-------------LAB 5 -----------------------\n");
+        printf(" 19 - Corners detection\n");
+        printf(" 20 - Corners subpixels\n");
+        printf(" 21 - Harrys method\n");
         printf(" 0 - Exit\n\n");
         printf("Option: ");
         scanf("%d", &op);
@@ -1100,6 +1225,15 @@ int main() {
                 break;
             case 18:
                 regionGrowing();
+                break;
+            case 19:
+                corners_detection();
+                break;
+            case 20:
+                corners_subpixels();
+                break;
+            case 21:
+                harrys_method();
                 break;
 
 
