@@ -1118,9 +1118,11 @@ void harrys_method() {
         Mat dst_norm, dst_norm_scaled;
         normalize(dst, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
         convertScaleAbs(dst_norm, dst_norm_scaled);
+        Mat dst_without_supr=dst_norm_scaled.clone();
         for (int i = 0; i < dst_norm.rows; i++) {
             for (int j = 0; j < dst_norm.cols; j++) {
                 if ((int) dst_norm.at<float>(i, j) > thresh) {
+                    circle(dst_without_supr, Point(j, i), 5, Scalar(0), 2, 8, 0);
                     bool flag = true;
                     for (int di = -d; di <= d; di++) {
                         for (int dj = -d; dj <= d; dj++) {
@@ -1136,9 +1138,57 @@ void harrys_method() {
             }
         }
         imshow("corners_window", dst_norm_scaled);
+        imshow("corners_without_supression_window", dst_without_supr);
         waitKey(0);
     }
 
+}
+
+void videoCornersDetection() {
+    VideoCapture cap("Videos/rubic.avi"); // off-line video from file
+    //VideoCapture cap(0);	// live video from web cam
+    if (!cap.isOpened()) {
+        printf("Cannot open video capture device.\n");
+        waitKey();
+        return;
+    }
+
+    Mat edges;
+    Mat frame;
+    char c;
+
+    while (cap.read(frame)) {
+        Mat grayFrame;
+        Mat src;
+        cvtColor(frame, src, CV_BGR2GRAY);
+        Mat dst_image = frame.clone();
+        GaussianBlur(src, src, Size(5, 5), 0.8, 0.8);
+
+        vector<Point2f> corners;
+        int maxCorners = 100;
+        double qualityLevel = 0.01;
+        double minDistance = 10;
+        int blockSize = 3; // 2,3, ...
+        bool useHarrisDetector = true;
+        double k = 0.04;
+        goodFeaturesToTrack(src, corners, maxCorners, qualityLevel, minDistance, Mat(), blockSize, useHarrisDetector,
+                            k);
+        //desenare colturi
+        Scalar circle_color(0, 255, 0);
+        for (int i = 0; i < corners.size(); i++) {
+            circle(dst_image, corners.at(i), 3, circle_color, 2);//Using circle()function to draw the line//
+        }
+
+        imshow("corners_detection", dst_image);
+
+
+        c = cvWaitKey();  // waits a key press to advance to the next frame
+        if (c == 27) {
+            // press ESC to exit
+            printf("ESC pressed - capture finished\n");
+            break;  //ESC pressed
+        };
+    }
 }
 
 int main() {
@@ -1170,6 +1220,7 @@ int main() {
         printf(" 19 - Corners detection\n");
         printf(" 20 - Corners subpixels\n");
         printf(" 21 - Harrys method\n");
+        printf(" 22 - Video \n");
         printf(" 0 - Exit\n\n");
         printf("Option: ");
         scanf("%d", &op);
@@ -1234,6 +1285,9 @@ int main() {
                 break;
             case 21:
                 harrys_method();
+                break;
+            case 22:
+                videoCornersDetection();
                 break;
 
 
