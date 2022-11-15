@@ -42,7 +42,7 @@ rule CUSTOM_COMMAND
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /home/birlutiuclaudiu/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/222.4167.35/bin/cmake/linux/bin/cmake --regenerate-during-build -S/home/birlutiuclaudiu/CLionProjects/OpenCVLab -B/home/birlutiuclaudiu/CLionProjects/OpenCVLab/cmake-build-release
+  command = /home/birlutiuclaudiu/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/222.4345.21/bin/cmake/linux/bin/cmake --regenerate-during-build -S/home/birlutiuclaudiu/CLionProjects/OpenCVLab -B/home/birlutiuclaudiu/CLionProjects/OpenCVLab/cmake-build-release
   description = Re-running CMake...
   generator = 1
 
@@ -51,7 +51,7 @@ rule RERUN_CMAKE
 # Rule for cleaning all built files.
 
 rule CLEAN
-  command = /home/birlutiuclaudiu/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/222.4167.35/bin/ninja/linux/ninja $FILE_ARG -t clean $TARGETS
+  command = /home/birlutiuclaudiu/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/222.4345.21/bin/ninja/linux/ninja $FILE_ARG -t clean $TARGETS
   description = Cleaning all built files...
 
 
@@ -59,6 +59,6 @@ rule CLEAN
 # Rule for printing all primary targets available.
 
 rule HELP
-  command = /home/birlutiuclaudiu/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/222.4167.35/bin/ninja/linux/ninja -t targets
+  command = /home/birlutiuclaudiu/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/222.4345.21/bin/ninja/linux/ninja -t targets
   description = All primary targets available:
 

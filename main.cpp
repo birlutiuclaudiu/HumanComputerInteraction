@@ -1118,7 +1118,7 @@ void harrys_method() {
         Mat dst_norm, dst_norm_scaled;
         normalize(dst, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
         convertScaleAbs(dst_norm, dst_norm_scaled);
-        Mat dst_without_supr=dst_norm_scaled.clone();
+        Mat dst_without_supr = dst_norm_scaled.clone();
         for (int i = 0; i < dst_norm.rows; i++) {
             for (int j = 0; j < dst_norm.cols; j++) {
                 if ((int) dst_norm.at<float>(i, j) > thresh) {
@@ -1191,6 +1191,80 @@ void videoCornersDetection() {
     }
 }
 
+void videoBackgroundSubtaction() {
+    VideoCapture cap("Videos/laboratory.AVI"); // off-line video from file
+    //VideoCapture cap(0);	// live video from web cam
+    if (!cap.isOpened()) {
+        printf("Cannot open video capture device.\n");
+        waitKey();
+        return;
+    }
+
+    Mat frame, gray_frame;
+    Mat background, diff, dst;
+    char c;
+    int frameNb = -1;  //current frame
+    printf("Chose method: ");
+    int method = 0;
+    scanf("%d", &method);
+    const unsigned char Th = 25;
+    const double alpha = 0.05;
+
+    while (cap.read(frame)) {
+        double t = (double) getTickCount();
+        Mat grayFrame;
+        Mat src;
+        cvtColor(frame, grayFrame, CV_BGR2GRAY);
+        GaussianBlur(grayFrame, grayFrame, Size(5, 5), 0.8, 0.8);
+
+        ++frameNb;
+        if (frameNb == 0) {
+            imshow("sursa", frame);
+        }
+        dst = Mat::zeros(grayFrame.size(), grayFrame.type());
+        const int channels_gray = grayFrame.channels();
+        if (channels_gray > 1) {
+            printf("More channels for gray");
+            return;
+        }
+        if (frameNb > 0) {
+            absdiff(grayFrame, background, diff);
+
+            if (method == 0) background = grayFrame.clone();
+            if (method == 1) addWeighted(grayFrame, alpha, background, 1.0 - alpha, 0, background);
+
+            for (int i = 0; i < diff.rows; i++) {
+                for (int j = 0; j < diff.cols; j++) {
+                    if (diff.at<uchar>(i, j) > Th)
+                        dst.at<uchar>(i, j) = 255;
+                    else if (method == 3) {
+                        background.at<uchar>(i, j) =
+                                alpha * grayFrame.at<uchar>(i, j) + (1.0 - alpha) * background.at<uchar>(i, j);
+                    }
+                }
+            }
+            Mat element = getStructuringElement( MORPH_CROSS, Size( 3, 3 ) );
+            erode ( dst, dst, element, Point(-1,-1), 2 );
+            dilate( dst, dst, element, Point(-1,-1), 2 );
+            imshow("sursa", frame);
+            imshow("destinatia", dst);
+            imshow("diff", diff);
+        } else {
+            background = grayFrame.clone();
+        }
+        t = ((double) getTickCount() - t) / getTickFrequency();
+        printf("%d - %.3f [ms]\n", frameNb, t * 1000);
+
+        c = cvWaitKey(0);  // waits a key press to advance to the next frame
+        if (c == 27) {
+            // press ESC to exit
+            printf("ESC pressed - capture finished\n");
+            break;  //ESC pressed
+        };
+    }
+}
+
+
 int main() {
     int op;
     do {
@@ -1221,6 +1295,7 @@ int main() {
         printf(" 20 - Corners subpixels\n");
         printf(" 21 - Harrys method\n");
         printf(" 22 - Video \n");
+        printf(" 23 - Video Background Subtraction \n");
         printf(" 0 - Exit\n\n");
         printf("Option: ");
         scanf("%d", &op);
@@ -1288,6 +1363,9 @@ int main() {
                 break;
             case 22:
                 videoCornersDetection();
+                break;
+            case 23:
+                videoBackgroundSubtaction();
                 break;
 
 
