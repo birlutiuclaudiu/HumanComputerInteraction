@@ -3,6 +3,9 @@
 
 #include "helpers/common.h"
 #include "helpers/Functions.h"
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 void testOpenImage() {
     char fname[MAX_PATH];
@@ -309,7 +312,7 @@ void testSnap() {
             printf("ESC pressed - capture finished");
             break;  //ESC pressed
         }
-        if (c == 115) { //'s' pressed - snapp the image to a file
+        if (c == 115) { //'s' pressed - snapp the image to a filecc
             frameCount++;
             fileName[0] = NULL;
             sprintf(numberStr, "%d", frameCount);
@@ -1243,9 +1246,9 @@ void videoBackgroundSubtaction() {
                     }
                 }
             }
-            Mat element = getStructuringElement( MORPH_CROSS, Size( 3, 3 ) );
-            erode ( dst, dst, element, Point(-1,-1), 2 );
-            dilate( dst, dst, element, Point(-1,-1), 2 );
+            Mat element = getStructuringElement(MORPH_CROSS, Size(3, 3));
+            erode(dst, dst, element, Point(-1, -1), 2);
+            dilate(dst, dst, element, Point(-1, -1), 2);
             imshow("sursa", frame);
             imshow("destinatia", dst);
             imshow("diff", diff);
@@ -1264,6 +1267,358 @@ void videoBackgroundSubtaction() {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////LAB8
+void showHistogram8(const string &name, int *hist, const int hist_cols, const int
+hist_height, bool showImages = true) {
+    if (showImages) {
+        Mat imgHist(hist_height, hist_cols, CV_8UC3, CV_RGB(255, 255, 255));
+
+        //computes histogram maximum
+        int max_hist = 0;
+        for (int i = 0; i < hist_cols; i++)
+            if (hist[i] > max_hist)
+                max_hist = hist[i];
+        double scale = 1.0;
+        scale = (double) hist_height / max_hist;
+        int baseline = hist_height - 1;
+
+        for (int x = 0; x < hist_cols; x++) {
+            Point p1 = Point(x, baseline);
+            Point p2 = Point(x, baseline - cvRound(hist[x] * scale));
+            line(imgHist, p1, p2, CV_RGB(255, 0, 255));
+        }
+
+        imshow(name, imgHist);
+    }
+}
+
+void L8_procesareFlux() {
+
+    Mat crnt; // current frame red as grayscale (crnt)
+    Mat prev; // previous frame (grayscale)
+    Mat dst; // output image/frame
+    Mat flow; // flow - matrix containing the optical flow vectors/pixel
+
+    std::string path = "./Polus";
+
+    int frameNum = -1; //current frame counter
+
+    makeColorwheel(); // initaializes the colorwhel for the colorcode module
+
+    make_HSI2RGB_LUT();
+    int hist_dir[360] = {0};
+    memset(hist_dir, 0, 360);
+
+    for (const auto &entry: fs::directory_iterator(path)) {
+        string fname = entry.path();
+        crnt = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+        GaussianBlur(crnt, crnt, Size(5, 5), 0.8, 0.8);
+        ++frameNum;
+        imshow("Cadru curent", crnt);
+        //ca si la L7:
+        if (frameNum > 0) {
+            // functii de procesare (calcul flux optic) si afisare
+            int winSize = 15;
+
+            double t = (double) getTickCount();
+            calcOpticalFlowFarneback(prev, crnt, flow, 0.5, 3, winSize, 10, 7, 1.5,
+                                     OPTFLOW_FARNEBACK_GAUSSIAN); //slower but more accurate
+            // Stop the proccesing time measure
+            t = ((double) getTickCount() - t) / getTickFrequency();
+            printf("%d - %.3f [ms]\n", frameNum, t * 1000);
+
+            for (int i = 0; i < flow.rows; i++) {
+                for (int j = 0; j < flow.cols; j++) {
+                    memset(hist_dir, 0, 360);
+
+                    int r = i;
+                    int c = j;
+                    float pi = 3.14;
+                    float minVel = 1.0;
+
+
+                    Point2f f = flow.at<Point2f>(r, c); // vectorul de miscare in punctual (r,c)
+                    // vectorul de miscare al punctului se considera cu originea in imaginea trecuta (prev)
+                    // si varful in imaginea curenta (crnt) –> se iau valorile lui din vectorul flow cu minus !
+                    float dir_rad = pi + atan2(-f.y, -f.x); //directia vectorului in radiani
+                    int dir_deg = dir_rad * 180 / pi;
+
+                    if (minVel * minVel < f.x * f.x + f.y * f.y) {
+                        hist_dir[dir_deg]++;
+                    }
+
+                }
+            }
+
+            showHistogram8("Hist", hist_dir, 360, 200, true);
+            // 200 [pixeli] = inaltimea ferestrei de afisare a histogramei
+            showHistogramDir("Hist dir", hist_dir, 360, 200, true);
+            showFlowDense("dst", prev, flow, 1, true);
+
+        }
+
+        // store crntent frame as previos for the next cycle
+        prev = crnt.clone();
+
+        char c = waitKey(0); // press any key to advance between frames
+        //for continous play use cvWaitKey( delay > 0)
+        if (c == 27) {
+            // press ESC to exit
+            printf("ESC pressed - playback finished\n\n");
+            break; //ESC pressed
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////FACE DETECTION //////////////////////////////////////////////
+CascadeClassifier face_cascade; // cascade clasifier object for face
+CascadeClassifier eyes_cascade; // cascade clasifier object for eyes
+CascadeClassifier nose_cascade; // cascade clasifier object for face
+CascadeClassifier mouth_cascade; // cascade clasifier object for eyes
+void FaceDetectandDisplay(const string &window_name, Mat frame, int minFaceSize, int minEyeSize) {
+    std::vector<Rect> faces;
+    Mat frame_gray;
+    cvtColor(frame, frame_gray, CV_BGR2GRAY);
+    equalizeHist(frame_gray, frame_gray);
+
+    face_cascade.detectMultiScale(frame_gray, faces, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, Size(minFaceSize, minFaceSize));
+    for (int i = 0; i < faces.size(); i++) {
+        Point center(faces[i].x + faces[i].width * 0.5, faces[i].y + faces[i].height * 0.5);
+        ellipse(frame, center, Size(faces[i].width * 0.5, faces[i].height * 0.5), 0, 0, 360, Scalar(255, 0, 255), 4, 8,
+                0);
+        Mat faceROI = frame_gray(faces[i]);
+        std::vector<Rect> eyes;
+
+        eyes_cascade.detectMultiScale(faceROI, eyes, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, Size(minEyeSize, minEyeSize));
+        for (int j = 0; j < eyes.size(); j++) {
+            Point center(faces[i].x + eyes[j].x + eyes[j].width * 0.5, faces[i].y + eyes[j].y + eyes[j].height * 0.5);
+            int radius = cvRound((eyes[j].width + eyes[j].height) * 0.25);
+            circle(frame, center, radius, Scalar(255, 0, 0), 4, 8, 0);
+        }
+    }
+    imshow(window_name, frame); //-- Show what you got
+    waitKey(0);
+}
+
+
+void FaceDetectandDisplay2(const string &window_name, Mat frame, int minFaceSize, int minEyeSize) {
+    std::vector<Rect> faces;
+    Mat frame_gray;
+    cvtColor(frame, frame_gray, CV_BGR2GRAY);
+    equalizeHist(frame_gray, frame_gray);
+    //-- Detect faces
+    face_cascade.detectMultiScale(frame_gray, faces, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE,
+                                  Size(minFaceSize, minFaceSize));
+
+
+    for (int i = 0; i < faces.size(); i++) {
+        // get the center of the face
+        Point center(faces[i].x + faces[i].width * 0.5, faces[i].y + faces[i].height * 0.5);
+        // draw circle around the face
+        ellipse(frame, center, Size(faces[i].width * 0.5, faces[i].height * 0.5), 0, 0,
+                360, Scalar(255, 0, 255), 4, 8, 0);
+        Mat faceROI = frame_gray(faces[i]);
+
+        //////////////////////////////////////for eyes/////////////////////////////////////////
+        Rect eyes_rect; //eyes are in the 20% ... 55% height of the face
+        eyes_rect.x = faces[i].x;
+        eyes_rect.y = faces[i].y + 0.2 * faces[i].height;
+        eyes_rect.width = faces[i].width;
+        eyes_rect.height = 0.35 * faces[i].height;
+        Mat eyes_ROI = frame_gray(eyes_rect);
+        std::vector<Rect> eyes;
+        eyes_cascade.detectMultiScale(eyes_ROI, eyes, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE,
+                                      Size(minEyeSize, minEyeSize));
+        for (int j = 0; j < eyes.size(); j++) {
+            // get the center of the eye
+            //atentie la modul in care se calculeaza pozitia absoluta a centrului ochiului
+            // relativa la coltul stanga-sus al imaginii:
+            Point center(eyes_rect.x + eyes[j].x + eyes[j].width * 0.5,
+                         eyes_rect.y + eyes[j].y + eyes[j].height * 0.5);
+            int radius = cvRound((eyes[j].width + eyes[j].height) * 0.25);
+            // draw circle around the eye
+            circle(frame, center, radius, Scalar(255, 0, 0), 4, 8, 0);
+        }
+        //////////////////////////////////////for mouth/////////////////////////////////////////
+        Rect mouth_rect; //mouth is in the 70% ... 99% height of the face
+        mouth_rect.x = faces[i].x;
+        mouth_rect.y = faces[i].y + 0.7 * faces[i].height;
+        mouth_rect.width = faces[i].width;
+        mouth_rect.height = 0.29 * faces[i].height;
+        Mat mouth_ROI = frame_gray(mouth_rect);
+        std::vector<Rect> mouth;
+        mouth_cascade.detectMultiScale(mouth_ROI, mouth, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE,
+                                       Size(minEyeSize, minEyeSize));
+        for (int j = 0; j < mouth.size(); j++) {
+            // get the center of the eye
+            //atentie la modul in care se calculeaza pozitia absoluta a centrului ochiului
+            // relativa la coltul stanga-sus al imaginii:
+            Point center(mouth_rect.x + mouth[j].x + mouth[j].width * 0.5,
+                         mouth_rect.y + mouth[j].y + mouth[j].height * 0.5);
+            int radius = cvRound((mouth[j].width + mouth[j].height) * 0.25);
+            // draw circle around the eye
+            circle(frame, center, radius, Scalar(255, 255, 0), 4, 8, 0);
+        }
+        //////////////////////////////////////for nose/////////////////////////////////////////
+        Rect nose_rect; //nose is the 40% ... 75% height of the face
+        nose_rect.x = faces[i].x;
+        nose_rect.y = faces[i].y + 0.4 * faces[i].height;
+        nose_rect.width = faces[i].width;
+        nose_rect.height = 0.35 * faces[i].height;
+        Mat nose_ROI = frame_gray(nose_rect);
+        std::vector<Rect> nose;
+
+        nose_cascade.detectMultiScale(nose_ROI, nose, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE,
+                                      Size(minEyeSize, minEyeSize));
+        for (int j = 0; j < nose.size(); j++) {
+            // get the center of the eye
+            //atentie la modul in care se calculeaza pozitia absoluta a centrului ochiului
+            // relativa la coltul stanga-sus al imaginii:
+            Point center(nose_rect.x + nose[j].x + nose[j].width * 0.5,
+                         nose_rect.y + nose[j].y + nose[j].height * 0.5);
+            int radius = cvRound((nose[j].width + nose[j].height) * 0.25);
+            // draw circle around the eye
+            circle(frame, center, radius, Scalar(126, 129, 152), 4, 8, 0);
+        }
+
+    }
+    imshow(window_name, frame); //-- Show what you got
+
+    waitKey(0);
+}
+
+
+void face_detection(int option) {
+    String face_cascade_name = "haarcascade_frontalface_alt.xml";
+    String eyes_cascade_name = "haarcascade_eye_tree_eyeglasses.xml";
+    String mouth_cascade_name = "haarcascade_mcs_mouth.xml";
+    String nose_cascade_name = "haarcascade_mcs_nose.xml";
+    // Load the cascades
+    if (!face_cascade.load(face_cascade_name)) {
+        printf("Error loading face cascades !\n");
+        return;
+    }
+    if (!eyes_cascade.load(eyes_cascade_name)) {
+        printf("Error loading eyes cascades !\n");
+        return;
+    }
+    if (!mouth_cascade.load(mouth_cascade_name)) {
+        printf("Error loading mouth cascades !\n");
+        return;
+    }
+    if (!nose_cascade.load(nose_cascade_name)) {
+        printf("Error loading nose cascades !\n");
+        return;
+    }
+    char fname[MAX_PATH];
+    while (openFileDlg(fname)) {
+        Mat src = imread(fname, CV_LOAD_IMAGE_COLOR);
+        Mat dst = src.clone();
+        int minFaceSize = 30;
+        int minEyeSize = minFaceSize / 5; // conform proprietatilor antropomorfice ale fetei (idem pt. gura si nas)
+        const char *WIN_DST = "Dst"; //window for the destination (processed) image
+        if (option == 0)
+            FaceDetectandDisplay(WIN_DST, dst, minFaceSize, minEyeSize);
+        else
+            FaceDetectandDisplay2(WIN_DST, dst, minFaceSize, minEyeSize);
+    }
+}
+
+//////////////test video/////////////////
+
+void FaceDetectandDisplayVideo(const string &window_name, Mat frame, int minFaceSize, int minEyeSize) {
+    std::vector<Rect> faces;
+    Mat frame_gray;
+    cvtColor(frame, frame_gray, CV_BGR2GRAY);
+    equalizeHist(frame_gray, frame_gray);
+
+    double t = (double) getTickCount();
+    face_cascade.detectMultiScale(frame_gray, faces, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, Size(minFaceSize, minFaceSize));
+    t = ((double) getTickCount() - t) / getTickFrequency();
+    // Print (in the console window) the processing time in [ms]
+    printf("Time = %.3f [ms]\n", t * 1000);
+
+    for (int i = 0; i < faces.size(); i++) {
+        Point center(faces[i].x + faces[i].width * 0.5, faces[i].y + faces[i].height * 0.5);
+        ellipse(frame, center, Size(faces[i].width * 0.5, faces[i].height * 0.5), 0, 0, 360, Scalar(255, 0, 255), 4, 8,
+                0);
+    }
+    imshow(window_name, frame); //-- Show what you got
+}
+
+void face_detection_video(Mat src) {
+    String face_cascade_name = "haarcascade_frontalface_alt.xml";
+    // Load the cascades
+    if (!face_cascade.load(face_cascade_name)) {
+        printf("Error loading face cascades !\n");
+        return;
+    }
+
+    Mat dst = src.clone();
+    int minFaceSize = 30;
+    int minEyeSize = minFaceSize / 5; // conform proprietatilor antropomorfice ale fetei (idem pt. gura si nas)
+    const char *WIN_DST = "Dst"; //window for the destination (processed) image
+
+    FaceDetectandDisplayVideo(WIN_DST, dst, minFaceSize, minEyeSize);
+
+
+}
+
+void testSnapVideoFace() {
+    VideoCapture cap(0); // open the deafult camera (i.e. the built in web cam)
+    if (!cap.isOpened()) // openenig the video device failed
+    {
+        printf("Cannot open video capture device.\n");
+        return;
+    }
+
+    Mat frame;
+    char numberStr[256];
+    char fileName[256];
+
+    // video resolution
+    Size capS = Size((int) cap.get(CV_CAP_PROP_FRAME_WIDTH),
+                     (int) cap.get(CV_CAP_PROP_FRAME_HEIGHT));
+
+    // Display window
+    const char *WIN_SRC = "Src"; //window for the source frame
+    namedWindow(WIN_SRC, CV_WINDOW_AUTOSIZE);
+    cvMoveWindow(WIN_SRC, 0, 0);
+
+    const char *WIN_DST = "Snapped"; //window for showing the snapped frame
+    namedWindow(WIN_DST, CV_WINDOW_AUTOSIZE);
+    cvMoveWindow(WIN_DST, capS.width + 10, 0);
+
+    char c;
+    int frameNum = -1;
+    int frameCount = 0;
+
+    for (;;) {
+        cap >> frame; // get a new frame from camera
+        if (frame.empty()) {
+            printf("End of the video file\n");
+            break;
+        }
+
+        ++frameNum;
+
+        imshow(WIN_SRC, frame);
+
+        c = cvWaitKey(10);  // waits a key press to advance to the next frame
+        if (c == 27) {
+            // press ESC to exit
+            printf("ESC pressed - capture finished");
+            break;  //ESC pressed
+        }
+        if (c == 115) { //'s' pressed - snapp the image to a filecc
+            face_detection_video(frame);
+            imshow(WIN_DST, frame);
+
+        }
+    }
+
+}
 
 int main() {
     int op;
@@ -1296,6 +1651,13 @@ int main() {
         printf(" 21 - Harrys method\n");
         printf(" 22 - Video \n");
         printf(" 23 - Video Background Subtraction \n");
+        printf("-------------LAB 8 -----------------------\n");
+
+        printf(" 24 - Lab 8 \n");
+        printf("-------------LAB 9 -----------------------\n");
+        printf(" 25 - Lab 9- face detection \n");
+        printf(" 26 - Lab 9- face detection 2 \n");
+        printf(" 27 - face detection online video 2 \n");
         printf(" 0 - Exit\n\n");
         printf("Option: ");
         scanf("%d", &op);
@@ -1367,7 +1729,18 @@ int main() {
             case 23:
                 videoBackgroundSubtaction();
                 break;
-
+            case 24:
+                L8_procesareFlux();
+                break;
+            case 25:
+                face_detection(0);
+                break;
+            case 26:
+                face_detection(1);
+                break;
+            case 27:
+                testSnapVideoFace();
+                break;
 
         }
     } while (op != 0);

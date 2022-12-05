@@ -3,7 +3,7 @@
 //#include <opencv2/legacy/legacy.hpp>
 //#include <opencv2/legacy/compat.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-
+#include "opencv2/objdetect/objdetect.hpp"
 //#include <windows.h>
 //#include <string>
 
